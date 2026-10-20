@@ -19,20 +19,22 @@ import {
   runTransaction,
   query,
   orderBy,
-  where,
   onSnapshot,
-  serverTimestamp,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+import {
   Timestamp
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDae8jt-00rzfWHmZFf0nTKgZSGiR06bs",
+  apiKey: "AIzaSyDae8jt-00zrfwAhmFZf0nTKgZSgiR06bs",
   authDomain: "tollan-kirtus-chat.firebaseapp.com",
   projectId: "tollan-kirtus-chat",
   storageBucket: "tollan-kirtus-chat.firebasestorage.app",
   messagingSenderId: "506724614745",
-  appId: "1:506724614745:web:231f1c9527ad251f3a748",
-  measurementId: "G-HHMEQNMV3"
+  appId: "1:506724614745:web:2e723bfff0e37c66f3a748",
+  measurementId: "G-HDWXGK609B"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -52,13 +54,17 @@ let username = null;
 let unsubscribeMessages = null;
 
 function showToast(message) {
+  if (!toast) return;
   toast.textContent = message;
   toast.classList.add("show");
-  setTimeout(() => toast.classList.remove("show"), 2600);
+  setTimeout(() => toast.classList.remove("show"), 3000);
 }
 
 function formatTime(timestamp) {
-  if (!timestamp) return "";
+  if (!timestamp || typeof timestamp.toDate !== "function") {
+    return "";
+  }
+
   return timestamp.toDate().toLocaleTimeString("es-MX", {
     hour: "2-digit",
     minute: "2-digit"
@@ -74,16 +80,16 @@ async function getOrCreateUsername(uid) {
   }
 
   const counterRef = doc(db, "meta", "counter");
-  let number;
+  let number = 0;
 
   await runTransaction(db, async (transaction) => {
     const counterSnap = await transaction.get(counterRef);
     const current = counterSnap.exists()
-      ? (counterSnap.data().value || 0)
+      ? Number(counterSnap.data().value || 0)
       : 0;
 
     number = current + 1;
-    transaction.set(counterRef, { value: number }, { merge: true });
+    transaction.set(counterRef, { value: number });
   });
 
   const generatedName = `user${number}`;
@@ -97,9 +103,11 @@ async function getOrCreateUsername(uid) {
 }
 
 function renderMessage(data) {
+  if (!messagesEl) return;
+
   const wrapper = document.createElement("article");
   wrapper.className =
-    "message" + (data.uid === currentUser.uid ? " mine" : "");
+    "message" + (data.uid === currentUser?.uid ? " mine" : "");
 
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -122,13 +130,15 @@ function renderMessage(data) {
 }
 
 function subscribeToMessages() {
-  const twoDaysAgo = Timestamp.fromMillis(
-    Date.now() - 2 * 24 * 60 * 60 * 1000
-  );
+  if (!messagesEl) return;
 
+  if (unsubscribeMessages) {
+    unsubscribeMessages();
+  }
+
+  // Mostrar todos los mensajes, sin límite de dos días.
   const messagesQuery = query(
     collection(db, "messages"),
-    where("createdAt", ">=", twoDaysAgo),
     orderBy("createdAt", "asc")
   );
 
@@ -146,11 +156,19 @@ function subscribeToMessages() {
         return;
       }
 
-      snapshot.forEach((docSnap) => renderMessage(docSnap.data()));
+      snapshot.forEach((docSnap) => {
+        renderMessage(docSnap.data());
+      });
+
       messagesEl.scrollTop = messagesEl.scrollHeight;
     },
     (error) => {
-      console.error("Error de Firestore:", error.code, error.message);
+      console.error(
+        "Error de Firestore:",
+        error.code,
+        error.message
+      );
+
       messagesEl.innerHTML = "";
 
       const empty = document.createElement("div");
@@ -170,14 +188,20 @@ onAuthStateChanged(auth, async (user) => {
 
   try {
     username = await getOrCreateUsername(user.uid);
-    userBadge.textContent = username;
-    input.disabled = false;
-    sendButton.disabled = false;
-    input.focus();
+
+    if (userBadge) userBadge.textContent = username;
+    if (input) input.disabled = false;
+    if (sendButton) sendButton.disabled = false;
+
     subscribeToMessages();
   } catch (error) {
-    console.error("Error al crear el usuario:", error.code, error.message);
-    userBadge.textContent = "Error";
+    console.error(
+      "Error al crear el usuario:",
+      error.code,
+      error.message
+    );
+
+    if (userBadge) userBadge.textContent = "Error";
     showToast(error.code || error.message);
   }
 });
@@ -189,42 +213,52 @@ signInAnonymously(auth).catch((error) => {
     error.message
   );
 
-  userBadge.textContent = error.code || "Error";
-  showToast(error.code || error.message);
-});
-
-input.addEventListener("input", () => {
-  charCount.textContent = input.value.length;
-});
-
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-
-  const text = input.value.trim();
-  if (!text || !currentUser || !username) return;
-
-  sendButton.disabled = true;
-
-  try {
-    const expireAt = new Date(
-      Date.now() + 2 * 24 * 60 * 60 * 1000
-    );
-
-    await addDoc(collection(db, "messages"), {
-      uid: currentUser.uid,
-      username,
-      text: text.slice(0, 500),
-      createdAt: serverTimestamp(),
-      expireAt: Timestamp.fromDate(expireAt)
-    });
-
-    input.value = "";
-    charCount.textContent = "0";
-  } catch (error) {
-    console.error("Error al enviar:", error.code, error.message);
-    showToast(error.code || error.message);
-  } finally {
-    sendButton.disabled = false;
-    input.focus();
+  if (userBadge) {
+    userBadge.textContent = error.code || "Error";
   }
+
+  showToast(`${error.code || "Error"}: ${error.message}`);
 });
+
+if (input) {
+  input.addEventListener("input", () => {
+    if (charCount) {
+      charCount.textContent = input.value.length;
+    }
+  });
+}
+
+if (form) {
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const text = input?.value.trim();
+
+    if (!text || !currentUser || !username) return;
+
+    if (sendButton) sendButton.disabled = true;
+
+    try {
+      await addDoc(collection(db, "messages"), {
+        uid: currentUser.uid,
+        username,
+        text: text.slice(0, 500),
+        createdAt: serverTimestamp()
+      });
+
+      input.value = "";
+      if (charCount) charCount.textContent = "0";
+    } catch (error) {
+      console.error(
+        "Error al enviar:",
+        error.code,
+        error.message
+      );
+
+      showToast(`${error.code || "Error"}: ${error.message}`);
+    } finally {
+      if (sendButton) sendButton.disabled = false;
+      if (input) input.focus();
+    }
+  });
+    }
