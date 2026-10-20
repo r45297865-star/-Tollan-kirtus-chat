@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tollan Kirtus Chat</title>
+  <meta name="description" content="Chat anónimo global de Tollan Kirtus">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="chat-card" aria-label="Tollan Kirtus Chat">
+      <header class="topbar">
+        <div class="brand">
+          <div class="logo">TK</div>
+          <div>
+            <h1>Tollan Kirtus Chat</h1>
+            <p><span class="status-dot"></span> Chat global anónimo</p>
+          </div>
+        </div>
+        <div class="user-badge" id="userBadge">Conectando…</div>
+      </header>
+
+      <div class="notice">
+        <span>🕑</span>
+        <span>Los mensajes se eliminan automáticamente después de 2 días.</span>
+      </div>
+
+      <section class="messages" id="messages" aria-live="polite">
+        <div class="loading" id="loading">Conectando al chat…</div>
+      </section>
+
+      <form class="composer" id="messageForm" autocomplete="off">
+        <input
+          id="messageInput"
+          maxlength="500"
+          placeholder="Escribe un mensaje…"
+          aria-label="Mensaje"
+          disabled
+        >
+        <button type="submit" id="sendButton" disabled>Enviar</button>
+      </form>
+      <div class="counter"><span id="charCount">0</span>/500</div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- Firebase SDK -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>

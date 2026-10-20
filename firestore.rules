@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Each anonymous account gets one generated username.
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && request.resource.data.username is string
+                    && request.resource.data.username.matches('user[0-9]+');
+      allow update, delete: if false;
+    }
+
+    // Counter used to generate user1, user2, user3...
+    match /meta/counter {
+      allow read, write: if request.auth != null
+                         && request.resource.data.value is int
+                         && request.resource.data.value >= resource.data.value
+                         && request.resource.data.value <= resource.data.value + 1;
+      allow create: if request.auth != null
+                    && request.resource.data.value == 1;
+    }
+
+    match /messages/{messageId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.username is string
+                    && request.resource.data.username.matches('user[0-9]+')
+                    && request.resource.data.text is string
+                    && request.resource.data.text.size() >= 1
+                    && request.resource.data.text.size() <= 500
+                    && request.resource.data.createdAt is timestamp
+                    && request.resource.data.expireAt is timestamp;
+
+      allow update, delete: if false;
+    }
+  }
+}
