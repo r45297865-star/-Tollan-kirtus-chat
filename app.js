@@ -1,3 +1,4 @@
+
 import {
   initializeApp
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
@@ -24,12 +25,6 @@ import {
   Timestamp
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
-/*
-  1) Crea un proyecto en Firebase.
-  2) Activa Authentication > Anonymous.
-  3) Crea Firestore Database.
-  4) Copia la configuración de tu app web aquí.
-*/
 const firebaseConfig = {
   apiKey: "AIzaSyDae8jt-00rzfWHmZFf0nTKgZSGiR06bs",
   authDomain: "tollan-kirtus-chat.firebaseapp.com",
@@ -81,17 +76,18 @@ async function getOrCreateUsername(uid) {
   const counterRef = doc(db, "meta", "counter");
   let number;
 
-  // Atomic transaction: two people entering at the same time
-  // receive different numbers.
   await runTransaction(db, async (transaction) => {
     const counterSnap = await transaction.get(counterRef);
-    const current = counterSnap.exists() ? (counterSnap.data().value || 0) : 0;
-    number = current + 1;
+    const current = counterSnap.exists()
+      ? (counterSnap.data().value || 0)
+      : 0;
 
+    number = current + 1;
     transaction.set(counterRef, { value: number }, { merge: true });
   });
 
   const generatedName = `user${number}`;
+
   await setDoc(userRef, {
     username: generatedName,
     createdAt: serverTimestamp()
@@ -102,7 +98,8 @@ async function getOrCreateUsername(uid) {
 
 function renderMessage(data) {
   const wrapper = document.createElement("article");
-  wrapper.className = "message" + (data.uid === currentUser.uid ? " mine" : "");
+  wrapper.className =
+    "message" + (data.uid === currentUser.uid ? " mine" : "");
 
   const meta = document.createElement("div");
   meta.className = "meta";
@@ -117,7 +114,6 @@ function renderMessage(data) {
 
   const text = document.createElement("p");
   text.className = "text";
-  // textContent avoids interpreting user messages as HTML.
   text.textContent = data.text || "";
 
   meta.append(name, time);
@@ -126,7 +122,9 @@ function renderMessage(data) {
 }
 
 function subscribeToMessages() {
-  const twoDaysAgo = Timestamp.fromMillis(Date.now() - 2 * 24 * 60 * 60 * 1000);
+  const twoDaysAgo = Timestamp.fromMillis(
+    Date.now() - 2 * 24 * 60 * 60 * 1000
+  );
 
   const messagesQuery = query(
     collection(db, "messages"),
@@ -134,23 +132,35 @@ function subscribeToMessages() {
     orderBy("createdAt", "asc")
   );
 
-  unsubscribeMessages = onSnapshot(messagesQuery, (snapshot) => {
-    messagesEl.innerHTML = "";
+  unsubscribeMessages = onSnapshot(
+    messagesQuery,
+    (snapshot) => {
+      messagesEl.innerHTML = "";
 
-    if (snapshot.empty) {
+      if (snapshot.empty) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+        empty.textContent =
+          "Todavía no hay mensajes. ¡Sé el primero!";
+        messagesEl.appendChild(empty);
+        return;
+      }
+
+      snapshot.forEach((docSnap) => renderMessage(docSnap.data()));
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    },
+    (error) => {
+      console.error("Error de Firestore:", error.code, error.message);
+      messagesEl.innerHTML = "";
+
       const empty = document.createElement("div");
       empty.className = "empty";
-      empty.textContent = "Todavía no hay mensajes. ¡Sé el primero!";
-      messagesEl.appendChild(empty);
-      return;
-    }
+      empty.textContent =
+        `Error al cargar mensajes: ${error.code || error.message}`;
 
-    snapshot.forEach((docSnap) => renderMessage(docSnap.data()));
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }, (error) => {
-    console.error(error);
-    messagesEl.innerHTML = '<div class="empty">No se pudo cargar el chat. Revisa la configuración de Firebase.</div>';
-  });
+      messagesEl.appendChild(empty);
+    }
+  );
 }
 
 onAuthStateChanged(auth, async (user) => {
@@ -166,16 +176,21 @@ onAuthStateChanged(auth, async (user) => {
     input.focus();
     subscribeToMessages();
   } catch (error) {
-    console.error(error);
+    console.error("Error al crear el usuario:", error.code, error.message);
     userBadge.textContent = "Error";
-    showToast("No se pudo asignar tu usuario.");
+    showToast(error.code || error.message);
   }
 });
 
 signInAnonymously(auth).catch((error) => {
-  console.error(error);
-  userBadge.textContent = "Sin conexión";
-  showToast("Activa el acceso anónimo en Firebase.");
+  console.error(
+    "Error de autenticación:",
+    error.code,
+    error.message
+  );
+
+  userBadge.textContent = error.code || "Error";
+  showToast(error.code || error.message);
 });
 
 input.addEventListener("input", () => {
@@ -191,8 +206,9 @@ form.addEventListener("submit", async (event) => {
   sendButton.disabled = true;
 
   try {
-    const now = new Date();
-    const expireAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const expireAt = new Date(
+      Date.now() + 2 * 24 * 60 * 60 * 1000
+    );
 
     await addDoc(collection(db, "messages"), {
       uid: currentUser.uid,
@@ -205,8 +221,8 @@ form.addEventListener("submit", async (event) => {
     input.value = "";
     charCount.textContent = "0";
   } catch (error) {
-    console.error(error);
-    showToast("No se pudo enviar el mensaje.");
+    console.error("Error al enviar:", error.code, error.message);
+    showToast(error.code || error.message);
   } finally {
     sendButton.disabled = false;
     input.focus();
